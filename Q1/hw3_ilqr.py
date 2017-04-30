@@ -7,9 +7,9 @@ import numpy as np
 
 def main():
 
-	# env_name = "TwoLinkArm-v0"
+	env_name = "TwoLinkArm-v0"
 	# #env_name = "TwoLinkArm-limited-torque-v0"
-	env_name = "TwoLinkArm-v1"
+	# env_name = "TwoLinkArm-v1"
 	# env_name = "TwoLinkArm-limited-torque-v1"
 
 	env = gym.make(env_name)
@@ -25,28 +25,37 @@ def main():
 
 	cost_list = []
 	control_list = []
-	#controls = None
+	controls = np.zeros((env.DOF,look_step))
 	#calculate controls
 	
-	t = 100
+	step_sizes = look_step
+	steppers = 0
+	num_steps = 0
+
 	is_terminal = False
 	while(not is_terminal):
-		q_states.append(state[:env.DOF])
-		q_dot_states.append(state[env.DOF:])
 
-		if(t >= look_step):
-			t = 0
-			controls, c_list = calc_ilqr_input(env, sim_env, look_step, max_itr)
-			cost_list = cost_list + c_list
+		nxt_controls = np.zeros((env.DOF,look_step))
+		nxt_controls[:,:look_step-step_sizes] = controls[:,step_sizes:]
 
-		next_state,reward,is_terminal,_ = env.step(controls[:,t])
-		control_list.append(controls[:,t])
+		controls, c_list = calc_ilqr_input(env, sim_env, look_step, max_itr,nxt_controls)
 
-		total_reward += reward
-		state = next_state
-		t += 1
+		steppers += 1
+		cost_list = cost_list + c_list
+		for t in range(step_sizes):
+			q_states.append(state[:env.DOF])
+			q_dot_states.append(state[env.DOF:])
 
-	print("{},total reward:{}".format(env_name,total_reward))
+			next_state,reward,is_terminal,_ = env.step(controls[:,t])
+			env.render()
+			control_list.append(controls[:,t])
+			total_reward += reward
+			state = next_state
+			num_steps += 1
+			if(is_terminal):
+				break
+
+	print("\n{},total reward:{}, num steps:{}".format(env_name,total_reward,num_steps))
 
 	f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
 
@@ -70,9 +79,11 @@ def main():
 	f.suptitle("Plots with iLQR for {}".format(env_name))
 
 	plt.show()
-	print(len(cost_list))
 	plt.title("cost over iterations")
-	plt.plot([look_step,look_step],[np.max(cost_list),np.max(cost_list)],'--',c='r')
+	#plt.plot([look_step,look_step],[np.max(cost_list),np.max(cost_list)],'--',c='r')
+	for s in range(steppers):
+
+		plt.plot([step_sizes * (1+s),step_sizes * (1+s)],[0,np.max(cost_list)],'--',c='r')
 	plt.plot(cost_list)
 	plt.show()
 

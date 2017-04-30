@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 
 def main():
 
-	# env_name = "TwoLinkArm-v0"
+	env_name = "TwoLinkArm-v0"
 	# env_name = "TwoLinkArm-limited-torque-v0"
 	# env_name = "TwoLinkArm-v1"
-	env_name = "TwoLinkArm-limited-torque-v1"
+	# env_name = "TwoLinkArm-limited-torque-v1"
 
 	env = gym.make(env_name)
 	sim_env = gym.make(env_name)
@@ -31,7 +31,7 @@ def main():
 		#get control
 		controls = calc_lqr_input(env, sim_env,last_u)
 		nxtstate, reward, is_terminal, info = env.step(controls)
-		control_inputs.append(controls)
+		control_inputs.append(np.clip(controls,env.action_space.low,env.action_space.high))
 		#env.render()
 		#input()
 		state = nxtstate
