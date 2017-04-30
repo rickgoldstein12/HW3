@@ -30,10 +30,12 @@ def simulate_dynamics(env, x, u, dt=1e-5):
       If you return x you will need to solve a different equation in
       your LQR controller.
     """
-    env.state = copy.deepcopy(x)
+    env.state = x.copy()
     x_nxt, reward, is_done, info = env._step(u,dt)
+    #return x_n
     return (x_nxt - x)/dt
     #return np.zeros(x.shape)
+
 
 
 def approximate_A(env, x, u, delta=1e-5, dt=1e-5):
@@ -66,10 +68,11 @@ def approximate_A(env, x, u, delta=1e-5, dt=1e-5):
     A = np.zeros((x.shape[0], x.shape[0]))
 
     for d in range(0, np.size(x,0)):
-      x_copy1 = copy.deepcopy(x)
+      x_copy1 = x.copy()
       x_copy1[d] += delta
       x1_dot = simulate_dynamics(env, x_copy1, u, dt)
-      x_copy = copy.deepcopy(x)
+      #print(x1_dot)
+      x_copy = x.copy()
       x_copy[d] -= delta
       x2_dot = simulate_dynamics(env, x_copy, u, dt)
       A[:,d] = (x1_dot  - x2_dot)/(delta*2)
@@ -106,10 +109,10 @@ def approximate_B(env, x, u, delta=1e-5, dt=1e-5):
     #df/dx = A
     B = np.zeros((x.shape[0], u.shape[0]))
     for d in range(0, np.size(u,0)):
-      u_copy = copy.deepcopy(u)
+      u_copy = u.copy()
       u_copy[d] += delta
       u1_dot = simulate_dynamics(env, x, u_copy, dt)
-      u_copy = copy.deepcopy(u)
+      u_copy = u.copy()
       u_copy[d] -= delta
       u2_dot = simulate_dynamics(env, x, u_copy, dt)
       B[:,d] = (u1_dot - u2_dot)/(delta*2)
@@ -119,7 +122,7 @@ def approximate_B(env, x, u, delta=1e-5, dt=1e-5):
 
 
 
-def calc_lqr_input(env, sim_env):
+def calc_lqr_input(env, sim_env, last_u):
     """Calculate the optimal control input for the given state.
 
     If you are following the API and simulate dynamics is returning
@@ -147,18 +150,16 @@ def calc_lqr_input(env, sim_env):
     x = env.state
     Q = env.Q
     R = env.R
-    u = np.zeros(env.DOF)
+    u = last_u
 
     delta = 1e-5
     A = approximate_A(sim_env, x, u, delta)
     B = approximate_B(sim_env, x, u, delta)
-
     #get approximate A and B
     P = scipy.linalg.solve_continuous_are(A,B,Q,R)
     K = np.dot(np.linalg.inv(R),np.dot(B.T,P))
-    #print(x)
-
     #get the optimal control to the goal
-    optimal_control = -np.dot(K,env.goal)
+    op_x = x - env.goal
+    optimal_control = -np.dot(K, op_x)
 
     return optimal_control
